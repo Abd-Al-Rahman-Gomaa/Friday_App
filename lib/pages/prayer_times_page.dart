@@ -58,9 +58,11 @@ class _MyHomePageState extends State<PrayerTimesPage> {
         now = DateTime.now();
       });
     });
+    // *mounted : This avoids errors if the widget is disposed before the location finishes.
     PrayerService()
         .getPrayerTimes()
         .then((times) {
+          if (!mounted) return;
           setState(() {
             prayerTimes = times;
             loading = false;
