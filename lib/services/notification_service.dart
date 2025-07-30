@@ -17,7 +17,7 @@ class NotificationService {
   static Future<void> initialize() async {
     tz.initializeTimeZones();
 
-    // STEP 2: Set the device’s timezone (example: Africa/Cairo)
+    // STEP 2: Set the device’s timezone (example: Africa/Cairo) (Dynamic)
     final String localZone = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(localZone));
     debugPrint("Local Timezone : $localZone");

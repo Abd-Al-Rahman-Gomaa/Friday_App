@@ -31,7 +31,8 @@ class PrayerService {
       locationSettings = AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 100,
-        forceLocationManager: true,
+        forceLocationManager:
+            true, //* This turn off Fused Location Provider and rely only on Gps
         intervalDuration: const Duration(seconds: 10),
         // Set foreground notification config to keep the app alive
         //when going to the background
