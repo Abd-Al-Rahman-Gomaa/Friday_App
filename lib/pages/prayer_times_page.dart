@@ -53,10 +53,18 @@ class _MyHomePageState extends State<PrayerTimesPage> {
         _offset = Offset.zero;
       });
     });
-    timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      setState(() {
-        now = DateTime.now();
-      });
+    //  Delay Bug Fixed: changed to rebuild every 20 sec.
+    timer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted) {
+        setState(() {
+          now = DateTime.now();
+        });
+      }
+    });
+
+    // ✅ Immediate rebuild after init to fix initial delay
+    Future.delayed(Duration.zero, () {
+      if (mounted) setState(() {});
     });
     // *mounted : This avoids errors if the widget is disposed before the location finishes.
     PrayerService()

@@ -69,9 +69,15 @@ Future<void> initializeApp() async {
       frequency: const Duration(hours: 24),
       initialDelay: const Duration(
         hours: 0,
-        minutes: 1, // ? the difference if this is 2 or 5 ?
+        minutes: 3, // ? the difference if this is 2 or 5 ?
       ), // Run soon after launch
-      constraints: Constraints(networkType: NetworkType.notRequired),
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+        requiresStorageNotLow: false,
+      ),
     );
   } catch (e) {
     debugPrint('InitializeApp Error : $e');

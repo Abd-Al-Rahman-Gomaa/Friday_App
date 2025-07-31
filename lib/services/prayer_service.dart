@@ -8,6 +8,8 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 class PrayerService {
+  static const double fallbackLatitude = 31.2001; // Alexandria lat.
+  static const double fallbackLongitude = 29.9187; // Alexandria long.
   Future<Map<String, String>> getPrayerTimes() async {
     // 1. Ask for location permission
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -26,6 +28,7 @@ class PrayerService {
     }
     // ignore: unused_local_variable
     late LocationSettings locationSettings; //?ignore unused
+    late Position position;
 
     if (defaultTargetPlatform == TargetPlatform.android) {
       locationSettings = AndroidSettings(
@@ -54,11 +57,36 @@ class PrayerService {
         showBackgroundLocationIndicator: false,
       );
     }
+    try {
+      // Try with high accuracy
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(Duration(minutes: 1));
+    } catch (_) {
+      debugPrint("⚠️ High accuracy failed, falling back to medium accuracy...");
+      // Update settings for fallback
+    }
 
-    // 2. Get current location
-    Position position = await Geolocator.getCurrentPosition(
-      locationSettings: locationSettings,
-    );
+    try {
+      // Final attempt with selected accuracy
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(accuracy: LocationAccuracy.medium),
+      ).timeout(Duration(minutes: 1));
+    } catch (e) {
+      debugPrint("❌ Both attempts failed, using fallback location: $e");
+      position = Position(
+        latitude: PrayerService.fallbackLatitude,
+        longitude: PrayerService.fallbackLongitude,
+        timestamp: DateTime.now(),
+        accuracy: 1.0,
+        altitude: 0.0,
+        heading: 0.0,
+        speed: 0.0,
+        speedAccuracy: 0.0,
+        altitudeAccuracy: 1.0,
+        headingAccuracy: 1.0,
+      );
+    }
 
     tz.initializeTimeZones();
     // STEP 2: Set the device’s timezone (example: Africa/Cairo)
