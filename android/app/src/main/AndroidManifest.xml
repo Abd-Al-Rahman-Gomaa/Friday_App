@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
@@ -9,6 +10,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
 
 
     <application
@@ -18,6 +22,10 @@
         android:label="Friday"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsReceiver"/>
 
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
@@ -29,6 +37,10 @@
             </intent-filter>
         </receiver>
 
+        <!-- Showing Notifications immediately -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsReceiver"/>
         <!-- ✅ Correct WorkManager receiver for background task scheduling -->
         <receiver
             android:name="be.tramckrijte.workmanager.WorkManagerBroadcastReceiver"

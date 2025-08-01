@@ -5,6 +5,7 @@ import 'package:friday_app/providers/prayer_provider.dart';
 import 'package:friday_app/services/notification_service.dart';
 import 'package:friday_app/services/prayer_service.dart';
 import 'package:friday_app/utils/prayer_times.dart';
+import 'package:hijri/hijri_calendar.dart';
 import 'package:intl/intl.dart'; // Provides DateFormat (e.g.: 4:20 Am).
 import 'dart:async';
 import 'package:provider/provider.dart'; // Needed for Timer class to periodically update the current time.
@@ -193,6 +194,9 @@ class _MyHomePageState extends State<PrayerTimesPage> {
 
     final String formattedTime = DateFormat.jm().format(now);
     final String formattedDate = DateFormat.yMMMMEEEEd().format(now);
+    final String hijriFormattedDate = HijriCalendar.fromDate(
+      now,
+    ).toFormat("dd MMMM, yyyy");
     final double deviceH = MediaQuery.of(context).size.height;
     final double deviceW = MediaQuery.of(context).size.width;
 
@@ -230,6 +234,10 @@ class _MyHomePageState extends State<PrayerTimesPage> {
                 ),
                 Text(
                   formattedDate,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Text(
+                  hijriFormattedDate,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 AnimatedSlide(

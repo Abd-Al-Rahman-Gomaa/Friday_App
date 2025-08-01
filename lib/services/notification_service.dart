@@ -10,6 +10,8 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:android_intent_plus/android_intent.dart'; // Opens Android system settings.
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class NotificationService {
   static final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -53,6 +55,8 @@ class NotificationService {
       if (sdkInt >= 31) {
         await openExactAlarmSettings();
       }
+      // Background PopUp
+      await _backgroundPermissions(androidInfo.brand);
     }
 
     //  Add this for Android 8+ (Oreo)
@@ -175,10 +179,69 @@ class NotificationService {
     if (nextFriday.isAfter(DateTime.now())) {
       NotificationService.schedulePrayerNotification(
         id: 999,
-        title: "Surah Al-Kahf Reminder",
+        title: "Surah Al-Kahf",
         body: "قراءة سورة الكهف يوم الجمعة تضيء للمسلم ما بين الجمعتين",
         scheduledTime: nextFriday,
       );
+    }
+  }
+
+  // 🔋 Handle Battery and Background Permissions Popup
+  static Future<void> _backgroundPermissions(String brand) async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('shownBackgroundPopup') ?? false;
+    if (shown) return;
+
+    final lowerBrand = brand.toLowerCase();
+    if (lowerBrand.contains("oppo") ||
+        lowerBrand.contains("vivo") ||
+        lowerBrand.contains("xiaomi") ||
+        lowerBrand.contains("realme")) {
+      _showPermissionDialog();
+    }
+
+    await prefs.setBool('shownBackgroundPopup', true);
+  }
+
+  static void _showPermissionDialog() {
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Enable Background Features"),
+        content: const Text(
+          "To ensure prayer notifications and location tracking work reliably:\n\n"
+          "• Allow background activity\n"
+          "• Enable autostart (if available)\n"
+          "• Disable battery optimizations",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _openBatterySettings();
+              Navigator.of(context).pop();
+            },
+            child: const Text("Open Settings"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Later"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Future<void> _openBatterySettings() async {
+    final intent = AndroidIntent(
+      action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS',
+    );
+    try {
+      await intent.launch();
+    } catch (e) {
+      debugPrint('Could not open battery settings: $e');
     }
   }
 }
