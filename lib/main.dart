@@ -49,6 +49,7 @@ Future<void> initializeApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Ensures Flutter engine is ready, needed before using plugins like Workmanager or timezone.
   try {
+    await NotificationService.initialize(); // * very Important
     await HabitDatabase.initialize();
     await HabitDatabase().saveFirstLaunchDate();
     await HabitDatabase().insertFiveHabitsIfNeeded();
@@ -58,11 +59,10 @@ Future<void> initializeApp() async {
     final String localZone = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(localZone));
     debugPrint("Local Timezone : $localZone");
-    await NotificationService.initialize(); // * very Important
     await openExactAlarmSettings();
     await NotificationService().cancelAllNotification();
 
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
     // Register daily task at midnight
     await Workmanager().registerPeriodicTask(
       "dailyPrayerTask",

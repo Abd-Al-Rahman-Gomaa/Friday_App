@@ -1,3 +1,4 @@
+import 'package:android_power_manager/android_power_manager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Scheduling and Showing local Notification.
@@ -56,6 +57,7 @@ class NotificationService {
         await openExactAlarmSettings();
       }
       // Background PopUp
+      await _requestIgnoreBatteryOptimizations();
       await _backgroundPermissions(androidInfo.brand);
     }
 
@@ -198,6 +200,7 @@ class NotificationService {
         lowerBrand.contains("xiaomi") ||
         lowerBrand.contains("realme")) {
       _showPermissionDialog();
+      await _openAutostartSettings();
     }
 
     await prefs.setBool('shownBackgroundPopup', true);
@@ -242,6 +245,72 @@ class NotificationService {
       await intent.launch();
     } catch (e) {
       debugPrint('Could not open battery settings: $e');
+    }
+  }
+
+  static Future<void> _requestIgnoreBatteryOptimizations() async {
+    try {
+      final bool? isIgnoring =
+          await AndroidPowerManager.isIgnoringBatteryOptimizations;
+
+      if (isIgnoring == null) {
+        debugPrint("⚠️ Unable to determine battery optimization status.");
+        return;
+      }
+
+      if (!isIgnoring) {
+        debugPrint("🔋 Not ignoring battery optimizations. Requesting...");
+        final success =
+            await AndroidPowerManager.requestIgnoreBatteryOptimizations();
+        if (success == true) {
+          debugPrint(
+            "✅ Requested to ignore battery optimizations successfully.",
+          );
+        } else {
+          debugPrint("❌ Failed to request ignoring battery optimizations.");
+        }
+      } else {
+        debugPrint("✅ Already ignoring battery optimizations.");
+      }
+    } catch (e) {
+      debugPrint("🛑 Battery optimization check/request error: $e");
+    }
+  }
+
+  static Future<void> _openAutostartSettings() async {
+    final List<AndroidIntent> intents = [
+      AndroidIntent(
+        componentName:
+            'com.miui.securitycenter/com.miui.permcenter.autostart.AutoStartManagementActivity',
+      ),
+      AndroidIntent(
+        componentName:
+            'com.coloros.safecenter/com.coloros.safecenter.permission.startup.StartupAppListActivity',
+      ),
+      AndroidIntent(
+        componentName:
+            'com.iqoo.secure/com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity',
+      ),
+      AndroidIntent(
+        componentName:
+            'com.huawei.systemmanager/.startupmgr.ui.StartupNormalAppListActivity',
+      ),
+    ];
+
+    bool launched = false;
+    for (var intent in intents) {
+      try {
+        await intent.launch();
+        launched = true;
+        debugPrint("🚀 Autostart settings opened.");
+        break;
+      } catch (e) {
+        debugPrint("❌ Failed to open one autostart intent: $e");
+      }
+    }
+
+    if (!launched) {
+      debugPrint("⚠️ Could not open any autostart settings.");
     }
   }
 }
