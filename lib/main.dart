@@ -19,7 +19,7 @@ void main() async {
 Future<void> initializeApp() async {
   try {
     await NotificationService.initializeForeground(); // For foreground usage
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
     await Workmanager().registerPeriodicTask(
       "dailyPrayerTask",
       "dailyPrayerTask",
