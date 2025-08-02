@@ -42,6 +42,10 @@ class _MyHomePageState extends State<PrayerTimesPage> {
   void initState() {
     super.initState();
     NotificationService.notificationPopUp();
+    // ✅ Show permission dialog after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.showAutostartAndBatteryDialogFromUI(context);
+    });
     if (quoteDate == null ||
         quoteDate != DateTime(now.year, now.month, now.day)) {
       final newQuote = quotes[random.nextInt(quotes.length)];

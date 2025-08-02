@@ -1,32 +1,32 @@
-import 'package:android_power_manager/android_power_manager.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Scheduling and Showing local Notification.
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'dart:io'; // Check the platform(iOS/Android).
+import 'package:android_power_manager/android_power_manager.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:friday_app/services/prayer_service.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Used to persist small values
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:android_intent_plus/android_intent.dart'; // Opens Android system settings.
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin notificationsPlugin =
+  static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
-  //* Initialize
+
+  // ------------------- INIT -------------------
   static Future<void> initialize() async {
     tz.initializeTimeZones();
+    final String zone = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(zone));
+    debugPrint("⏰ Timezone set to $zone");
 
-    // STEP 2: Set the device’s timezone (example: Africa/Cairo) (Dynamic)
-    final String localZone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(localZone));
-    debugPrint("Local Timezone : $localZone");
-    //     tzData.initializeTimeZones(); // Initializes time zones
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('ic_stat_popup2');
+
     const DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
           requestAlertPermission: true,
@@ -38,60 +38,171 @@ class NotificationService {
       android: androidSettings,
       iOS: iosSettings,
     );
-    await notificationsPlugin.initialize(settings);
 
-    //  Ask for permission on Android 13+ (API 33+)
+    await _plugin.initialize(settings);
+
     if (Platform.isAndroid) {
-      final androidInfo = await DeviceInfoPlugin().androidInfo;
-      final sdkInt = androidInfo.version.sdkInt;
-      final androidImplementation = notificationsPlugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      final granted = await androidImplementation
-          ?.requestNotificationsPermission();
-      debugPrint("🔐 Notification permission granted: $granted");
-
-      // Android 12+ exact alarm permission
-      if (sdkInt >= 31) {
-        await openExactAlarmSettings();
-      }
-      // Background PopUp
-      await _requestIgnoreBatteryOptimizations();
-      await _backgroundPermissions(androidInfo.brand);
+      await _requestAndroidPermissions();
     }
 
-    //  Add this for Android 8+ (Oreo)
+    await _createNotificationChannel();
+  }
+
+  // ------------------- PERMISSION HELPERS -------------------
+  static Future<void> _requestAndroidPermissions() async {
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    final sdkInt = androidInfo.version.sdkInt;
+
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    final granted = await androidPlugin?.requestNotificationsPermission();
+    debugPrint("🔐 Notification permission granted: $granted");
+
+    if (sdkInt >= 31) {
+      await _openExactAlarmSettings();
+    }
+
+    await _requestIgnoreBatteryOptimizations();
+
+    // Do NOT show UI here; move _backgroundPermissionsUI to the UI layer
+  }
+
+  static Future<void> _requestIgnoreBatteryOptimizations() async {
+    try {
+      final isIgnoring =
+          await AndroidPowerManager.isIgnoringBatteryOptimizations;
+      if (isIgnoring != true) {
+        final success =
+            await AndroidPowerManager.requestIgnoreBatteryOptimizations();
+        debugPrint(
+          success!
+              ? "✅ Battery optimization ignored"
+              : "❌ Failed to ignore battery optimization",
+        );
+      }
+    } catch (e) {
+      debugPrint("🛑 Battery optimization error: $e");
+    }
+  }
+
+  static Future<void> _openExactAlarmSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('exactAlarmAllowed') == true) return;
+
+    final intent = AndroidIntent(
+      action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+    );
+    try {
+      await intent.launch();
+      await prefs.setBool('exactAlarmAllowed', true);
+    } catch (e) {
+      debugPrint("⚠️ Could not launch exact alarm settings: $e");
+    }
+  }
+
+  static Future<void> _createNotificationChannel() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'prayer_channel', // Must match the one used in details
+      'prayer_channel',
       'Prayer Notifications',
       description: 'Daily prayer notifications for prayer times',
       importance: Importance.max,
     );
 
-    await notificationsPlugin
+    final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
+        >();
+    await androidPlugin?.createNotificationChannel(channel);
   }
 
-  //* Notification Details Setup
-  NotificationDetails notificationDetails() {
-    return const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'prayer_channel',
-        'Prayer Notifications',
-        icon: 'ic_stat_popup2',
-        largeIcon: DrawableResourceAndroidBitmap('ic_stat_popup2'),
-        importance: Importance.max,
-        priority: Priority.high,
-      ),
-      iOS: DarwinNotificationDetails(),
+  // ------------------- BACKGROUND UI - CALLED FROM MAIN -------------------
+  static Future<void> showAutostartAndBatteryDialogFromUI(
+    BuildContext context,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('shownBackgroundPopup') == true) return;
+
+    final brand = (await DeviceInfoPlugin().androidInfo).brand.toLowerCase();
+    if (brand.contains('oppo') ||
+        brand.contains('vivo') ||
+        brand.contains('xiaomi') ||
+        brand.contains('realme') ||
+        brand.contains('redmi') ||
+        brand.contains('bbk')) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Enable Background Features"),
+          content: const Text(
+            "To ensure prayer notifications work reliably:\n\n"
+            "• Allow background activity\n"
+            "• Enable autostart (if available)\n"
+            "• Disable battery optimizations",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                openBatterySettings();
+                openAutostartSettings();
+                Navigator.of(context).pop();
+              },
+              child: const Text("Open Settings"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Later"),
+            ),
+          ],
+        ),
+      );
+    }
+
+    await prefs.setBool('shownBackgroundPopup', true);
+  }
+
+  static Future<void> openBatterySettings() async {
+    final intent = AndroidIntent(
+      action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS',
     );
+    try {
+      await intent.launch();
+    } catch (e) {
+      debugPrint("⚠️ Could not open battery settings: $e");
+    }
   }
 
-  //* Show Notifications
+  static Future<void> openAutostartSettings() async {
+    final intents = [
+      'com.miui.securitycenter/com.miui.permcenter.autostart.AutoStartManagementActivity',
+      'com.coloros.safecenter/com.coloros.safecenter.permission.startup.StartupAppListActivity',
+      'com.iqoo.secure/com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity',
+      'com.huawei.systemmanager/.startupmgr.ui.StartupNormalAppListActivity',
+    ];
+
+    for (final path in intents) {
+      try {
+        await AndroidIntent(componentName: path).launch();
+        return;
+      } catch (_) {}
+    }
+    debugPrint("⚠️ Could not open any autostart settings");
+  }
+
+  // ------------------- NOTIFICATIONS -------------------
+  NotificationDetails _notificationDetails() => const NotificationDetails(
+    android: AndroidNotificationDetails(
+      'prayer_channel',
+      'Prayer Notifications',
+      icon: 'ic_stat_popup2',
+      importance: Importance.max,
+      priority: Priority.high,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
+
   static Future<void> schedulePrayerNotification({
     required int id,
     required String title,
@@ -99,239 +210,75 @@ class NotificationService {
     required DateTime scheduledTime,
   }) async {
     try {
-      await notificationsPlugin.zonedSchedule(
+      await _plugin.zonedSchedule(
         id,
         title,
         body,
         tz.TZDateTime.from(scheduledTime, tz.local),
-        NotificationService().notificationDetails(),
+        NotificationService()._notificationDetails(),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
-      debugPrint('Notification Scheduled Successfully');
+      debugPrint("✅ Scheduled notification: $title @ $scheduledTime");
     } catch (e) {
-      debugPrint('Erro Scheduling Notification : $e');
+      debugPrint("❌ Scheduling failed: $e");
     }
   }
 
-  //* Cancel Notification before scheduling new ones
-  Future<void> cancelAllNotification() async {
-    await notificationsPlugin.cancelAll();
-  }
+  Future<void> cancelAll() async => await _plugin.cancelAll();
 
   static Future<void> notificationPopUp() async {
     final popUp = await PrayerService().getPrayerTimes();
-    // Schedule notifications
-    DateTime nextFriday = DateTime(
-      DateTime.now().year,
-      DateTime.now().month,
-      DateTime.now().day,
-      9,
-      0,
-    ); // 9:00 AM
-    while (nextFriday.weekday != DateTime.friday) {
-      nextFriday = nextFriday.add(const Duration(days: 1));
-    }
-    // If Friday is today but the time has passed, schedule for next week
-    if (nextFriday.isBefore(DateTime.now())) {
-      nextFriday = nextFriday.add(const Duration(days: 7));
-    }
+    final now = DateTime.now();
 
     for (final entry in popUp.entries) {
-      final now = DateTime.now();
       final name = entry.key;
-      final timeString = entry.value;
-      final parsedTime = DateFormat.jm().parse(timeString);
-      final nowDate = DateTime.now();
-      final dateTime = DateTime(
-        nowDate.year,
-        nowDate.month,
-        nowDate.day,
-        parsedTime.hour,
-        parsedTime.minute,
+      if (name == 'Sunrise') continue;
+
+      final time = DateFormat.jm().parse(entry.value);
+      final scheduled = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
       );
-      DateTime finalDateTime = dateTime.isBefore(now)
-          ? dateTime.add(const Duration(days: 1))
-          : dateTime;
-      debugPrint("🔔 Scheduling $name at $finalDateTime");
-      if (finalDateTime.isAfter(now) && name != 'Sunrise') {
-        // a. At the time of prayer
-        NotificationService.schedulePrayerNotification(
-          id: name.hashCode,
-          title: "$name Prayer",
-          body: "It's time for $name prayer.",
-          scheduledTime: finalDateTime,
-        );
-        // b. 10 minutes before prayer
-        final preNotification = finalDateTime.subtract(
-          const Duration(minutes: 10),
-        );
-        if (preNotification.isAfter(now) && name != 'Sunrise') {
-          NotificationService.schedulePrayerNotification(
-            id: name.hashCode + 100,
-            title: "$name Prayer Soon",
-            body: "$name prayer in 10 minutes.",
-            scheduledTime: preNotification,
-          );
-        }
-        debugPrint("⏰ Scheduled $name at $finalDateTime");
-      } else {
-        debugPrint("⚠️ Skipped $name — $finalDateTime is in the past");
-      }
-    }
-    if (nextFriday.isAfter(DateTime.now())) {
-      NotificationService.schedulePrayerNotification(
-        id: 999,
-        title: "Surah Al-Kahf",
-        body: "قراءة سورة الكهف يوم الجمعة تضيء للمسلم ما بين الجمعتين",
-        scheduledTime: nextFriday,
+      finalDateTime(
+        name,
+        scheduled.isBefore(now) ? scheduled.add(Duration(days: 1)) : scheduled,
       );
     }
-  }
 
-  // 🔋 Handle Battery and Background Permissions Popup
-  static Future<void> _backgroundPermissions(String brand) async {
-    final prefs = await SharedPreferences.getInstance();
-    final shown = prefs.getBool('shownBackgroundPopup') ?? false;
-    if (shown) return;
-
-    final lowerBrand = brand.toLowerCase();
-    if (lowerBrand.contains("oppo") ||
-        lowerBrand.contains("vivo") ||
-        lowerBrand.contains("xiaomi") ||
-        lowerBrand.contains("realme")) {
-      _showPermissionDialog();
-      await _openAutostartSettings();
-    }
-
-    await prefs.setBool('shownBackgroundPopup', true);
-  }
-
-  static void _showPermissionDialog() {
-    final context = navigatorKey.currentContext;
-    if (context == null) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Enable Background Features"),
-        content: const Text(
-          "To ensure prayer notifications and location tracking work reliably:\n\n"
-          "• Allow background activity\n"
-          "• Enable autostart (if available)\n"
-          "• Disable battery optimizations",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _openBatterySettings();
-              Navigator.of(context).pop();
-            },
-            child: const Text("Open Settings"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Later"),
-          ),
-        ],
-      ),
+    final DateTime nextFriday = _nextFriday();
+    await schedulePrayerNotification(
+      id: 999,
+      title: "Surah Al-Kahf",
+      body: "قراءة سورة الكهف يوم الجمعة تضيء للمسلم ما بين الجمعتين",
+      scheduledTime: nextFriday,
     );
   }
 
-  static Future<void> _openBatterySettings() async {
-    final intent = AndroidIntent(
-      action: 'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS',
+  static Future<void> finalDateTime(String name, DateTime dateTime) async {
+    await schedulePrayerNotification(
+      id: name.hashCode,
+      title: "$name Prayer",
+      body: "It's time for $name prayer.",
+      scheduledTime: dateTime,
     );
-    try {
-      await intent.launch();
-    } catch (e) {
-      debugPrint('Could not open battery settings: $e');
-    }
+    await schedulePrayerNotification(
+      id: name.hashCode + 100,
+      title: "$name Prayer Soon",
+      body: "$name prayer in 10 minutes.",
+      scheduledTime: dateTime.subtract(const Duration(minutes: 10)),
+    );
   }
 
-  static Future<void> _requestIgnoreBatteryOptimizations() async {
-    try {
-      final bool? isIgnoring =
-          await AndroidPowerManager.isIgnoringBatteryOptimizations;
-
-      if (isIgnoring == null) {
-        debugPrint("⚠️ Unable to determine battery optimization status.");
-        return;
-      }
-
-      if (!isIgnoring) {
-        debugPrint("🔋 Not ignoring battery optimizations. Requesting...");
-        final success =
-            await AndroidPowerManager.requestIgnoreBatteryOptimizations();
-        if (success == true) {
-          debugPrint(
-            "✅ Requested to ignore battery optimizations successfully.",
-          );
-        } else {
-          debugPrint("❌ Failed to request ignoring battery optimizations.");
-        }
-      } else {
-        debugPrint("✅ Already ignoring battery optimizations.");
-      }
-    } catch (e) {
-      debugPrint("🛑 Battery optimization check/request error: $e");
+  static DateTime _nextFriday() {
+    DateTime now = DateTime.now();
+    while (now.weekday != DateTime.friday) {
+      now = now.add(const Duration(days: 1));
     }
-  }
-
-  static Future<void> _openAutostartSettings() async {
-    final List<AndroidIntent> intents = [
-      AndroidIntent(
-        componentName:
-            'com.miui.securitycenter/com.miui.permcenter.autostart.AutoStartManagementActivity',
-      ),
-      AndroidIntent(
-        componentName:
-            'com.coloros.safecenter/com.coloros.safecenter.permission.startup.StartupAppListActivity',
-      ),
-      AndroidIntent(
-        componentName:
-            'com.iqoo.secure/com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity',
-      ),
-      AndroidIntent(
-        componentName:
-            'com.huawei.systemmanager/.startupmgr.ui.StartupNormalAppListActivity',
-      ),
-    ];
-
-    bool launched = false;
-    for (var intent in intents) {
-      try {
-        await intent.launch();
-        launched = true;
-        debugPrint("🚀 Autostart settings opened.");
-        break;
-      } catch (e) {
-        debugPrint("❌ Failed to open one autostart intent: $e");
-      }
-    }
-
-    if (!launched) {
-      debugPrint("⚠️ Could not open any autostart settings.");
-    }
-  }
-}
-
-Future<void> openExactAlarmSettings() async {
-  final prefs = await SharedPreferences.getInstance();
-  final hasOpenedSettings = prefs.getBool('exactAlarmAllowed') ?? false;
-
-  if (hasOpenedSettings) {
-    debugPrint("Exact alarm already allowed, skipping settings");
-    return;
-  }
-
-  final intent = AndroidIntent(
-    action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-  );
-
-  try {
-    await intent.launch();
-    await prefs.setBool('exactAlarmAllowed', true);
-  } catch (e) {
-    debugPrint('Could not launch settings: $e');
+    return now.hour >= 9
+        ? now.add(const Duration(days: 7)).copyWith(hour: 9)
+        : now.copyWith(hour: 9);
   }
 }
