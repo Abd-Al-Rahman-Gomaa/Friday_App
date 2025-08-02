@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:workmanager/workmanager.dart';
-import 'notification_service.dart';
+import 'package:friday_app/services/notification_service.dart';
 
-@pragma('vm:entry-point') // Needed if used in release mode
+@pragma('vm:entry-point')
 void callbackDispatcher() {
-  //Workmanager().executeTask => This callback is triggered when your background task (like "dailyPrayerTask") is fired.
   Workmanager().executeTask((task, inputData) async {
-    debugPrint("Background task running: $task at ${DateTime.now()}");
-    await NotificationService.initialize(); // re-initialize inside background
-    await NotificationService.notificationPopUp(); // your notification
-    return Future.value(true);
+    debugPrint("🛠 Running background task: $task");
+
+    try {
+      await NotificationService.initializeBackground();
+      await NotificationService.notificationPopUp();
+      debugPrint("✅ Task $task completed.");
+      return true;
+    } catch (e, stack) {
+      debugPrint("❌ Task $task failed: $e");
+      debugPrint("📚 Stack Trace: $stack");
+      return false;
+    }
   });
 }
