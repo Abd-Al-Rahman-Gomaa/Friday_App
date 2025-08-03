@@ -18,18 +18,24 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-        isCoreLibraryDesugaringEnabled = true // 🔥 Required for Java 8+ APIs
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true // 🔥 Required for Java 8+
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
+
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(17))
+        }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug") // Use proper release signing later
+            signingConfig = signingConfigs.getByName("release") // Use proper release signing later
         }
     }
 }
@@ -41,3 +47,13 @@ dependencies {
 flutter {
     source = "../.."
 }
+
+signingConfigs {
+    create("release") {
+        storeFile = file("keystore.jks") // path to your keystore
+        storePassword = "your-store-password"
+        keyAlias = "your-key-alias"
+        keyPassword = "your-key-password"
+    }
+}
+

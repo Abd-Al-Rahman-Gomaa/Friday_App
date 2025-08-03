@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
-
 import 'package:friday_app/database/habit_database.dart';
 import 'package:friday_app/providers/prayer_provider.dart';
 import 'package:friday_app/services/notification_service.dart';
@@ -23,7 +22,7 @@ Future<void> initializeApp() async {
     await Workmanager().registerPeriodicTask(
       "dailyPrayerTask",
       "dailyPrayerTask",
-      frequency: const Duration(hours: 24),
+      frequency: const Duration(minutes: 15),
       initialDelay: const Duration(minutes: 2),
       constraints: Constraints(networkType: NetworkType.notRequired),
     );
@@ -34,7 +33,6 @@ Future<void> initializeApp() async {
   await HabitDatabase.initialize();
   await HabitDatabase().saveFirstLaunchDate();
   await HabitDatabase().insertFiveHabitsIfNeeded();
-
   await NotificationService.cancelAll();
 }
 

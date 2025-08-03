@@ -23,9 +23,6 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
-        <receiver
-            android:exported="false"
-            android:name="com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsReceiver"/>
 
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
@@ -76,6 +73,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
     </application>
 
     <queries>
