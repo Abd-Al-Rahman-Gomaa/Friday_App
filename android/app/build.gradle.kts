@@ -47,6 +47,7 @@ android {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false // optional
+            isShrinkResources = false
         }
     }
 }
