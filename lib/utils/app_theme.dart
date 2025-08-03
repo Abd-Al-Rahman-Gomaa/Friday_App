@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
-  brightness: Brightness.light,
-  scaffoldBackgroundColor: Colors.white, // Muted lavender
+  brightness: Brightness.dark,
+  scaffoldBackgroundColor: const Color(0xFF121212), // Typical dark background
   colorScheme: ColorScheme.fromSeed(
-    seedColor: Color(0xFFC6B8F4),
-    primary: Color(0xFFA28ED6), // For buttons & headers.
-    secondary: Color(0xFFD0B8A8), // Complementary color.
-    surface: Color(0xFFE8E3F9), // For Cards or Containers.
-    onPrimary: Colors.white, // text color that goes on top of primary.
+    seedColor: const Color(0xFFC6B8F4), // Same seed as light theme
+    brightness: Brightness.dark,
+    primary: const Color(
+      0xFFBCAAF4,
+    ), // Slightly brighter for dark mode contrast
+    secondary: const Color(0xFFD0B8A8), // Keep for consistency
+    surface: const Color(0xFF1E1B2E), // Dark variant of light surface
+    onPrimary: Colors.black, // Dark text/icons on bright primary
   ),
   fontFamily: 'BodoniModa',
   textTheme: const TextTheme(
