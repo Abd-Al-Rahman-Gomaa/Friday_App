@@ -37,9 +37,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = rootProject.file("keystore.jks")
-            storePassword = "your-store-password"
-            keyAlias = "your-key-alias"
-            keyPassword = "your-key-password"
+            storePassword = "myaarg"
+            keyAlias = "friday_key"
+            keyPassword = "myaarg"
         }
     }
 
