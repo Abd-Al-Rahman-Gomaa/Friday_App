@@ -20,7 +20,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true // 🔥 Required for Java 8+
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -33,12 +33,24 @@ android {
         }
     }
 
+    // ✅ Move this before buildTypes
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore.jks")
+            storePassword = "your-store-password"
+            keyAlias = "your-key-alias"
+            keyPassword = "your-key-password"
+        }
+    }
+
     buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("release") // Use proper release signing later
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false // optional
         }
     }
 }
+
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") // ✅ Correct version
@@ -46,14 +58,5 @@ dependencies {
 
 flutter {
     source = "../.."
-}
-
-signingConfigs {
-    create("release") {
-        storeFile = file("keystore.jks") // path to your keystore
-        storePassword = "your-store-password"
-        keyAlias = "your-key-alias"
-        keyPassword = "your-key-password"
-    }
 }
 
