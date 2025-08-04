@@ -99,7 +99,40 @@ class PrayerService {
     final dateForCalculation = DateTime(now.year, now.month, now.day);
     // 3. Define coordinates and params
     final coordinates = Coordinates(position.latitude, position.longitude);
-    final params = CalculationMethod.egyptian();
+    CalculationParameters params;
+
+    if (localZone == "Africa/Cairo") {
+      params = CalculationMethod.egyptian();
+    } else if (localZone.startsWith("Asia/Riyadh") ||
+        localZone.startsWith("Asia/Makkah")) {
+      params = CalculationMethod.ummAlQura();
+    } else if (localZone.startsWith("Asia/Dubai") ||
+        localZone.startsWith("Asia/Qatar") ||
+        localZone.startsWith("Asia/Kuwait")) {
+      params = CalculationMethod.dubai();
+    } else if (localZone.startsWith("Asia/Karachi")) {
+      params = CalculationMethod.karachi();
+    } else if (localZone.startsWith("Asia/Tehran")) {
+      params = CalculationMethod.tehran();
+    } else if (localZone.startsWith("Asia/Jakarta") ||
+        localZone.startsWith("Asia/Singapore") ||
+        localZone.startsWith("Asia/Kuala_Lumpur")) {
+      params = CalculationMethod.singapore();
+    } else if (localZone.startsWith("Europe/Istanbul") ||
+        localZone.startsWith("Europe/Ankara")) {
+      params = CalculationMethod.turkiye();
+    } else if (localZone.startsWith("Europe") ||
+        localZone.startsWith("Africa")) {
+      // Many European/African countries follow MWL
+      params = CalculationMethod.muslimWorldLeague();
+    } else if (localZone.startsWith("America") ||
+        localZone.startsWith("Canada")) {
+      params = CalculationMethod.northAmerica();
+    } else {
+      // Fallback default
+      params = CalculationMethod.muslimWorldLeague();
+    }
+
     params.madhab = Madhab.shafi;
     // 4. Calculate times
     final prayerTimes = PrayerTimes(
