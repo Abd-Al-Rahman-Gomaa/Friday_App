@@ -172,11 +172,12 @@ class NotificationService {
   static Future<void> _scheduleSurahAlKahf() async {
     final now = DateTime.now();
     DateTime nextFriday = DateTime(now.year, now.month, now.day, 9);
-    while (nextFriday.weekday != DateTime.friday) {
-      nextFriday = nextFriday.add(const Duration(days: 1));
-    }
-    if (nextFriday.isBefore(now)) {
-      nextFriday = nextFriday.add(const Duration(days: 7));
+
+    // Move to next Friday if today is not Friday or it's already past 9 AM today
+    if (now.weekday != DateTime.friday || now.isAfter(nextFriday)) {
+      do {
+        nextFriday = nextFriday.add(const Duration(days: 1));
+      } while (nextFriday.weekday != DateTime.friday);
     }
 
     await scheduleNotification(

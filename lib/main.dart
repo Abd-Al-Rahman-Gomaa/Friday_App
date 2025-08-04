@@ -22,7 +22,7 @@ Future<void> initializeApp() async {
     await Workmanager().registerPeriodicTask(
       "dailyPrayerTask",
       "dailyPrayerTask",
-      frequency: const Duration(minutes: 15),
+      frequency: const Duration(hours: 2),
       initialDelay: const Duration(minutes: 2),
       constraints: Constraints(networkType: NetworkType.notRequired),
     );

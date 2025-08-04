@@ -385,13 +385,13 @@ class _MyHomePageState extends State<PrayerTimesPage> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const ImageViewerPage(
-                              title: 'Surah Mulk',
+                              title: 'Surah Al-Mulk',
                               imagePath: 'assets/images/surah-mulk.jpg',
                             ),
                           ),
                         );
                       },
-                      child: const Text('Surah Mulk'),
+                      child: const Text('Surah Al-Mulk'),
                     ),
                   ],
                 ),
